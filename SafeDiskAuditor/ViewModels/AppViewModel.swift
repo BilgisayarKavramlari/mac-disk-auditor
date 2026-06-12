@@ -7,7 +7,11 @@ final class AppViewModel: ObservableObject {
 
     let scanViewModel: ScanViewModel
 
-    init(scanViewModel: ScanViewModel = ScanViewModel()) {
+    init() {
+        self.scanViewModel = ScanViewModel()
+    }
+
+    init(scanViewModel: ScanViewModel) {
         self.scanViewModel = scanViewModel
     }
 }
