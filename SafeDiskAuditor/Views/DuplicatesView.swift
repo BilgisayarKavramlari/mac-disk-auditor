@@ -1,23 +1,70 @@
 import AppKit
 import SwiftUI
 
+enum DuplicateCandidateSortMode: String, CaseIterable, Identifiable {
+    case defaultPriority = "Default"
+    case size = "Size"
+    case fileName = "File Name"
+    case modificationDate = "Modified Date"
+    case path = "Path"
+
+    var id: String { rawValue }
+}
+
 struct DuplicatesView: View {
     @ObservedObject var scanViewModel: ScanViewModel
     let runAnotherScan: () -> Void
     @State private var interactionMessage: String?
+    @State private var sortMode: DuplicateCandidateSortMode = .defaultPriority
+    @State private var selectedFileIDs: Set<String> = []
 
     private var sortedDuplicateGroups: [DuplicateGroup] {
         scanViewModel.duplicateGroups.sorted { lhs, rhs in
-            if lhs.fileCount == rhs.fileCount {
+            switch sortMode {
+            case .defaultPriority:
+                let lhsReclaimable = max(0, lhs.fileCount - 1) * lhs.size
+                let rhsReclaimable = max(0, rhs.fileCount - 1) * rhs.size
+                if lhsReclaimable != rhsReclaimable {
+                    return lhsReclaimable > rhsReclaimable
+                }
+                if lhs.size != rhs.size {
+                    return lhs.size > rhs.size
+                }
+                return newestModificationDate(in: lhs) > newestModificationDate(in: rhs)
+            case .size:
                 return lhs.size > rhs.size
+            case .fileName:
+                return firstSortedFile(in: lhs).filename.localizedStandardCompare(firstSortedFile(in: rhs).filename) == .orderedAscending
+            case .modificationDate:
+                return newestModificationDate(in: lhs) > newestModificationDate(in: rhs)
+            case .path:
+                return firstSortedFile(in: lhs).path.localizedStandardCompare(firstSortedFile(in: rhs).path) == .orderedAscending
             }
-
-            return lhs.fileCount > rhs.fileCount
         }
     }
 
+    private var allCandidateFiles: [ScannedFile] {
+        scanViewModel.duplicateGroups.flatMap(\.files)
+    }
+
     private var totalCandidateFiles: Int {
-        scanViewModel.duplicateGroups.reduce(0) { $0 + $1.fileCount }
+        allCandidateFiles.count
+    }
+
+    private var selectedFiles: [ScannedFile] {
+        allCandidateFiles.filter { selectedFileIDs.contains($0.id) }
+    }
+
+    private var selectedTotalSize: Int64 {
+        selectedFiles.reduce(0) { $0 + $1.size }
+    }
+
+    private var selectedTotalSizeDescription: String {
+        ByteCountFormatter.string(fromByteCount: selectedTotalSize, countStyle: .file)
+    }
+
+    private var hasRunScan: Bool {
+        scanViewModel.lastScanStartedAt != nil || scanViewModel.scanStatus == .completed
     }
 
     private var hasRunScan: Bool {
@@ -28,6 +75,7 @@ struct DuplicatesView: View {
         VStack(alignment: .leading, spacing: 20) {
             header
             summary
+            sortingAndSelectionControls
             interactionHint
             candidateGroups
             Spacer(minLength: 0)
@@ -51,7 +99,7 @@ private extension DuplicatesView {
             Button {
                 runAnotherScan()
             } label: {
-                Label("Run Another Scan", systemImage: "magnifyingglass.circle")
+                Label("Back to Scan", systemImage: "house")
             }
         }
     }
@@ -60,6 +108,77 @@ private extension DuplicatesView {
         HStack(spacing: 16) {
             metricCard(title: "Candidate groups", value: "\(scanViewModel.duplicateGroups.count)")
             metricCard(title: "Candidate files", value: "\(totalCandidateFiles)")
+            metricCard(title: "Estimated reclaimable", value: scanViewModel.estimatedReclaimableCandidateSizeDescription)
+            metricCard(title: "Selected", value: "\(selectedFiles.count) files")
+        }
+    }
+
+    var sortingAndSelectionControls: some View {
+        GroupBox("Review Controls") {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Picker("Sort", selection: $sortMode) {
+                        ForEach(DuplicateCandidateSortMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Spacer()
+
+                    Text("Sort: \(sortMode.rawValue)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack(spacing: 12) {
+                    Button("Select All") {
+                        selectedFileIDs = Set(allCandidateFiles.map(\.id))
+                    }
+                    .disabled(allCandidateFiles.isEmpty)
+
+                    Button("Clear Selection") {
+                        selectedFileIDs.removeAll()
+                    }
+                    .disabled(selectedFileIDs.isEmpty)
+
+                    Text("Selected: \(selectedFiles.count) files • \(selectedTotalSizeDescription)")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+                }
+
+                HStack(spacing: 12) {
+                    Button("Move Selected to Trash") {}
+                        .disabled(true)
+                    Button("Keep Newest in Each Group") {}
+                        .disabled(true)
+                    Button("Merge All") {}
+                        .disabled(true)
+                }
+
+                Text("Cleanup actions are disabled until hash verification is implemented. Current results are size-based candidates only.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    var interactionHint: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Right-click a candidate file for actions. These actions only open files or reveal them in Finder. No files are modified.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let interactionMessage {
+                Text(interactionMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -91,35 +210,41 @@ private extension DuplicatesView {
             } else {
                 List(sortedDuplicateGroups) { group in
                     Section {
-                        ForEach(group.files) { file in
+                        ForEach(sortedFiles(in: group)) { file in
                             candidateFileRow(file)
                         }
                     } header: {
-                        Text("\(group.fileCount) candidate files • \(ByteCountFormatter.string(fromByteCount: group.size, countStyle: .file)) each")
+                        Text(groupHeader(for: group))
+                            .font(.headline)
                     }
                 }
                 .listStyle(.inset)
-                .frame(minHeight: 260)
+                .frame(minHeight: 360)
             }
         }
     }
 
     func candidateFileRow(_ file: ScannedFile) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(file.filename)
-                    .font(.headline)
-                Spacer()
-                Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
+        HStack(alignment: .top, spacing: 10) {
+            Toggle("", isOn: selectionBinding(for: file))
+                .labelsHidden()
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(file.filename)
+                        .font(.headline)
+                    Spacer()
+                    Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Text(file.path)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
-
-            Text(file.path)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
         }
         .padding(.vertical, 2)
         .contentShape(Rectangle())
@@ -137,10 +262,51 @@ private extension DuplicatesView {
         }
     }
 
+    func selectionBinding(for file: ScannedFile) -> Binding<Bool> {
+        Binding {
+            selectedFileIDs.contains(file.id)
+        } set: { isSelected in
+            if isSelected {
+                selectedFileIDs.insert(file.id)
+            } else {
+                selectedFileIDs.remove(file.id)
+            }
+        }
+    }
+
     var emptyCandidatesMessage: String {
         hasRunScan
         ? "No duplicate candidates found in the latest scan."
         : "Run a scan first to calculate duplicate candidates."
+    }
+
+    func sortedFiles(in group: DuplicateGroup) -> [ScannedFile] {
+        group.files.sorted { lhs, rhs in
+            switch sortMode {
+            case .defaultPriority, .modificationDate:
+                return (lhs.modificationDate ?? .distantPast) > (rhs.modificationDate ?? .distantPast)
+            case .size:
+                return lhs.size > rhs.size
+            case .fileName:
+                return lhs.filename.localizedStandardCompare(rhs.filename) == .orderedAscending
+            case .path:
+                return lhs.path.localizedStandardCompare(rhs.path) == .orderedAscending
+            }
+        }
+    }
+
+    func firstSortedFile(in group: DuplicateGroup) -> ScannedFile {
+        sortedFiles(in: group).first ?? group.files[0]
+    }
+
+    func newestModificationDate(in group: DuplicateGroup) -> Date {
+        group.files.compactMap(\.modificationDate).max() ?? .distantPast
+    }
+
+    func groupHeader(for group: DuplicateGroup) -> String {
+        let reclaimableSize = max(0, group.fileCount - 1) * group.size
+        let reclaimableDescription = ByteCountFormatter.string(fromByteCount: reclaimableSize, countStyle: .file)
+        return "\(group.fileCount) candidate files • \(ByteCountFormatter.string(fromByteCount: group.size, countStyle: .file)) each • estimated reclaimable \(reclaimableDescription)"
     }
 
     func openFile(_ file: ScannedFile) {

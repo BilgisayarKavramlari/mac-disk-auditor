@@ -20,6 +20,7 @@ struct ScanView: View {
 
                 folderSelection
                 scanStatus
+                scanDashboard
                 completionSummary
                 diagnostics
                 recentFiles
@@ -41,6 +42,23 @@ private extension ScanView {
             Text("Choose one or more folders to recursively scan for regular files. SafeDisk Auditor only scans folders you select, skips hidden files and package contents by default, and does not modify files during scanning.")
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                viewModel.chooseFolders()
+            } label: {
+                Label("Choose Folders…", systemImage: "folder.badge.plus")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(viewModel.isScanning)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(.quaternary)
         }
     }
 
@@ -97,11 +115,31 @@ private extension ScanView {
                             viewModel.cancelScan()
                         }
                     }
+
+                    Button {
+                        viewModel.saveScanResults()
+                    } label: {
+                        Label("Save Scan Results…", systemImage: "square.and.arrow.down")
+                    }
+                    .disabled(!viewModel.hasScanResults || viewModel.isScanning)
+
+                    Button {
+                        viewModel.loadScanResults()
+                    } label: {
+                        Label("Load Scan Results…", systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(viewModel.isScanning)
                 }
 
                 Text(viewModel.selectedFolderSummary)
                     .font(.callout)
                     .foregroundStyle(.secondary)
+
+                if viewModel.isLoadedScanResult, let timestamp = viewModel.loadedScanTimestampDescription {
+                    Label("Loaded from saved scan: \(timestamp)", systemImage: "externaldrive")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
                 if !viewModel.selectedFolders.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
@@ -162,6 +200,40 @@ private extension ScanView {
     }
 
     @ViewBuilder
+    var scanDashboard: some View {
+        if viewModel.hasScanResults {
+            GroupBox("Scan Dashboard") {
+                VStack(alignment: .leading, spacing: 12) {
+                    if viewModel.isLoadedScanResult, let timestamp = viewModel.loadedScanTimestampDescription {
+                        Label("Showing results loaded from a saved scan: \(timestamp)", systemImage: "tray.and.arrow.down")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 12)], spacing: 12) {
+                        metricCard(title: "Free disk space", value: viewModel.freeDiskSpaceDescription)
+                        metricCard(title: "Scanned files", value: "\(viewModel.scannedFileCount)")
+                        metricCard(title: "Scanned size", value: viewModel.totalSizeDescription)
+                        metricCard(title: "Candidate groups", value: "\(viewModel.duplicateGroups.count)")
+                        metricCard(title: "Candidate files", value: "\(viewModel.duplicateCandidateFileCount)")
+                        metricCard(title: "Estimated reclaimable", value: viewModel.estimatedReclaimableCandidateSizeDescription)
+                        metricCard(title: "Scan duration", value: viewModel.scanDurationDescription)
+                        metricCard(title: "Selected folders", value: "\(viewModel.lastSelectedFolderCount)")
+                    }
+
+                    reclaimableBar
+
+                    Text("Duplicate size is estimated from candidate groups and is not safe to clean until hash verification is implemented.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    @ViewBuilder
     var completionSummary: some View {
         if viewModel.scanStatus == .completed {
             GroupBox("Completion Summary") {
@@ -185,6 +257,27 @@ private extension ScanView {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+        }
+    }
+
+    var reclaimableBar: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Estimated candidate reclaimable size")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            GeometryReader { proxy in
+                let ratio = viewModel.totalSize > 0
+                    ? min(1, Double(viewModel.estimatedReclaimableCandidateSize) / Double(viewModel.totalSize))
+                    : 0
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(.quaternary)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(.orange)
+                        .frame(width: max(4, proxy.size.width * ratio))
+                }
+            }
+            .frame(height: 8)
         }
     }
 
