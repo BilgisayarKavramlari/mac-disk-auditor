@@ -2,9 +2,24 @@ import SwiftUI
 
 struct DuplicatesView: View {
     @ObservedObject var scanViewModel: ScanViewModel
+    let runAnotherScan: () -> Void
+
+    private var sortedDuplicateGroups: [DuplicateGroup] {
+        scanViewModel.duplicateGroups.sorted { lhs, rhs in
+            if lhs.fileCount == rhs.fileCount {
+                return lhs.size > rhs.size
+            }
+
+            return lhs.fileCount > rhs.fileCount
+        }
+    }
 
     private var totalCandidateFiles: Int {
         scanViewModel.duplicateGroups.reduce(0) { $0 + $1.fileCount }
+    }
+
+    private var hasRunScan: Bool {
+        scanViewModel.lastScanStartedAt != nil || scanViewModel.scanStatus == .completed
     }
 
     var body: some View {
@@ -26,9 +41,15 @@ private extension DuplicatesView {
                 .font(.largeTitle)
                 .fontWeight(.semibold)
 
-            Text("Candidates are grouped by exact file size only. No partial hashes, full hashes, deletion, Trash, auto-select, preview, or cleaner actions are implemented on this screen.")
+            Text("Candidates are grouped by exact file size only. No partial hashes, full hashes, deletion, Trash, auto-select, preview, or cleaner actions are implemented on this screen. No files are modified.")
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                runAnotherScan()
+            } label: {
+                Label("Run Another Scan", systemImage: "magnifyingglass.circle")
+            }
         }
     }
 
@@ -45,11 +66,11 @@ private extension DuplicatesView {
                 ContentUnavailableView(
                     "No Candidate Groups",
                     systemImage: "doc.on.doc",
-                    description: Text("Run a scan to find same-size file groups. Unique-size and zero-byte files are ignored.")
+                    description: Text(emptyCandidatesMessage)
                 )
                 .frame(maxWidth: .infinity, minHeight: 180)
             } else {
-                List(scanViewModel.duplicateGroups) { group in
+                List(sortedDuplicateGroups) { group in
                     Section {
                         ForEach(group.files) { file in
                             VStack(alignment: .leading, spacing: 4) {
@@ -71,13 +92,19 @@ private extension DuplicatesView {
                             .padding(.vertical, 2)
                         }
                     } header: {
-                        Text("\(group.fileCount) files • \(ByteCountFormatter.string(fromByteCount: group.size, countStyle: .file)) each")
+                        Text("\(group.fileCount) candidate files • \(ByteCountFormatter.string(fromByteCount: group.size, countStyle: .file)) each")
                     }
                 }
                 .listStyle(.inset)
                 .frame(minHeight: 260)
             }
         }
+    }
+
+    var emptyCandidatesMessage: String {
+        hasRunScan
+        ? "No duplicate candidates found in the latest scan."
+        : "Run a scan first to calculate duplicate candidates."
     }
 
     func metricCard(title: String, value: String) -> some View {
@@ -96,5 +123,5 @@ private extension DuplicatesView {
 }
 
 #Preview {
-    DuplicatesView(scanViewModel: ScanViewModel())
+    DuplicatesView(scanViewModel: ScanViewModel(), runAnotherScan: {})
 }
