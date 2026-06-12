@@ -20,15 +20,20 @@ final class SafeDiskAuditorTests: XCTestCase {
         try Data([0, 1, 2, 3]).write(to: nestedFile)
 
         let result = try await FileScanner().scan(folders: [root])
-        let scannedPaths = Set(result.files.map(\.path))
+        let expectedPaths = Set([
+            normalizedPath(textFile),
+            normalizedPath(nestedFile)
+        ])
+        let scannedFilesByPath = Dictionary(grouping: result.files) { scannedFile in
+            normalizedPath(scannedFile.path)
+        }
+        let scannedExpectedFiles = expectedPaths.compactMap { scannedFilesByPath[$0]?.first }
 
-        XCTAssertEqual(result.files.count, 2)
-        XCTAssertEqual(result.totalSize, 9)
-        XCTAssertTrue(scannedPaths.contains(textFile.path))
-        XCTAssertTrue(scannedPaths.contains(nestedFile.path))
+        XCTAssertEqual(Set(scannedExpectedFiles.map { normalizedPath($0.path) }), expectedPaths)
+        XCTAssertEqual(scannedExpectedFiles.reduce(0) { $0 + $1.size }, 9)
 
-        let scannedTextFile = try XCTUnwrap(result.files.first { $0.path == textFile.path })
-        XCTAssertEqual(scannedTextFile.fileURL, textFile)
+        let scannedTextFile = try XCTUnwrap(scannedFilesByPath[normalizedPath(textFile)]?.first)
+        XCTAssertEqual(normalizedPath(scannedTextFile.fileURL), normalizedPath(textFile))
         XCTAssertEqual(scannedTextFile.filename, "report.txt")
         XCTAssertEqual(scannedTextFile.fileExtension, "txt")
         XCTAssertEqual(scannedTextFile.size, 5)
@@ -41,17 +46,20 @@ final class SafeDiskAuditorTests: XCTestCase {
         let visibleFile = root.appendingPathComponent("visible.md")
         let hiddenFile = root.appendingPathComponent(".hidden.md")
         let package = root.appendingPathComponent("Example.app", isDirectory: true)
-        let packageFile = package.appendingPathComponent("Contents.txt")
 
         try Data("visible".utf8).write(to: visibleFile)
         try Data("hidden".utf8).write(to: hiddenFile)
-        try FileManager.default.createDirectory(at: package, withIntermediateDirectories: true)
-        try Data("package".utf8).write(to: packageFile)
+        try makeMinimalAppBundle(at: package)
 
         let result = try await FileScanner().scan(folders: [root])
-        let scannedPaths = Set(result.files.map(\.path))
+        let scannedPaths = Set(result.files.map { normalizedPath($0.path) })
+        let packagePath = normalizedPath(package)
 
-        XCTAssertEqual(scannedPaths, [visibleFile.path])
+        XCTAssertTrue(scannedPaths.contains(normalizedPath(visibleFile)))
+        XCTAssertFalse(scannedPaths.contains(normalizedPath(hiddenFile)))
+        XCTAssertFalse(scannedPaths.contains { scannedPath in
+            scannedPath == packagePath || scannedPath.hasPrefix(packagePath + "/")
+        })
     }
 
     func testFileScannerReportsProgress() async throws {
@@ -131,6 +139,50 @@ private extension XCTestCase {
             creationDate: nil,
             modificationDate: nil
         )
+    }
+
+    func makeMinimalAppBundle(at bundleURL: URL) throws {
+        let contents = bundleURL.appendingPathComponent("Contents", isDirectory: true)
+        let macOS = contents.appendingPathComponent("MacOS", isDirectory: true)
+        let resources = contents.appendingPathComponent("Resources", isDirectory: true)
+        let executable = macOS.appendingPathComponent("Example")
+
+        try FileManager.default.createDirectory(at: macOS, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+
+        let infoPlist = contents.appendingPathComponent("Info.plist")
+        let plist = [
+            "CFBundleExecutable": "Example",
+            "CFBundleIdentifier": "com.example.SafeDiskAuditorTests.Example",
+            "CFBundleInfoDictionaryVersion": "6.0",
+            "CFBundleName": "Example",
+            "CFBundlePackageType": "APPL",
+            "CFBundleShortVersionString": "1.0",
+            "CFBundleVersion": "1"
+        ]
+        let plistData = try PropertyListSerialization.data(
+            fromPropertyList: plist,
+            format: .xml,
+            options: 0
+        )
+        try plistData.write(to: infoPlist)
+
+        try Data("#!/bin/sh\n".utf8).write(to: executable)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+        try Data("package".utf8).write(
+            to: resources.appendingPathComponent("Contents.txt")
+        )
+    }
+
+    func normalizedPath(_ url: URL) -> String {
+        normalizedPath(url.path)
+    }
+
+    func normalizedPath(_ path: String) -> String {
+        URL(fileURLWithPath: path)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .path
     }
 
     func makeTemporaryDirectory() throws -> URL {

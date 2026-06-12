@@ -4,14 +4,23 @@ struct ScanView: View {
     @ObservedObject var viewModel: ScanViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            header
-            folderSelection
-            progressSummary
-            recentFiles
-            Spacer(minLength: 0)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                header
+
+                if !viewModel.hasSelectedFolders {
+                    firstRunCard
+                }
+
+                folderSelection
+                scanStatus
+                completionSummary
+                diagnostics
+                recentFiles
+            }
+            .padding(32)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(32)
         .navigationTitle("Scan")
     }
 }
@@ -19,84 +28,183 @@ struct ScanView: View {
 private extension ScanView {
     var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Start with a safe, focused scan", systemImage: "externaldrive.badge.magnifyingglass")
+            Label("Start with a safe, focused scan", systemImage: "magnifyingglass.circle")
                 .font(.largeTitle)
                 .fontWeight(.semibold)
 
-            Text("Choose one or more folders to recursively scan for regular files. SafeDisk Auditor skips hidden files and package contents by default, and this screen only collects metadata—duplicate detection and deletion are not implemented yet.")
+            Text("Choose one or more folders to recursively scan for regular files. SafeDisk Auditor only scans folders you select, skips hidden files and package contents by default, and does not modify files during scanning.")
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
+    var firstRunCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label("Choose a folder to start", systemImage: "folder.badge.plus")
+                .font(.title2)
+                .fontWeight(.semibold)
+
+            Text("SafeDisk Auditor only scans folders you select. No files are modified.")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                viewModel.chooseFolders()
+            } label: {
+                Label("Choose Folders…", systemImage: "folder.badge.plus")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(viewModel.isScanning)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(.quaternary)
+        }
+    }
+
     var folderSelection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Button {
-                    viewModel.chooseFolders()
-                } label: {
-                    Label("Choose Folders…", systemImage: "folder.badge.plus")
-                }
-                .disabled(viewModel.isScanning)
-
-                Button {
-                    viewModel.startScan()
-                } label: {
-                    Label("Start Scan", systemImage: "play.fill")
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(!viewModel.canStartScan)
-
-                if viewModel.isScanning {
-                    Button("Cancel", role: .cancel) {
-                        viewModel.cancelScan()
+        GroupBox("Selected Folders") {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Button {
+                        viewModel.chooseFolders()
+                    } label: {
+                        Label(viewModel.folderSelectionButtonTitle, systemImage: "folder.badge.plus")
                     }
+                    .disabled(viewModel.isScanning)
+
+                    Button {
+                        viewModel.startScan()
+                    } label: {
+                        Label("Start Scan", systemImage: "play.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!viewModel.canStartScan)
+
+                    if viewModel.isScanning {
+                        Button("Cancel", role: .cancel) {
+                            viewModel.cancelScan()
+                        }
+                    }
+                }
+
+                Text(viewModel.selectedFolderSummary)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+
+                if !viewModel.selectedFolders.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(viewModel.selectedFolders, id: \.path) { folder in
+                            Text(folder.path)
+                                .font(.caption)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
 
-            Text(viewModel.selectedFolderSummary)
-                .font(.callout)
-                .foregroundStyle(.secondary)
+    var scanStatus: some View {
+        GroupBox("Scan Status") {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    Text(viewModel.scanStatus.rawValue)
+                        .font(.headline)
 
-            if !viewModel.selectedFolders.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(viewModel.selectedFolders, id: \.path) { folder in
-                        Text(folder.path)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
+                    if viewModel.isScanning {
+                        ProgressView()
+                            .controlSize(.small)
                     }
                 }
+
+                HStack(spacing: 16) {
+                    metricCard(title: "Files scanned", value: "\(viewModel.scannedFileCount)")
+                    metricCard(title: "Total size", value: viewModel.totalSizeDescription)
+                }
+
+                if let currentPath = viewModel.currentPath {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Current file")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(currentPath)
+                            .font(.caption)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+
+                if let errorMessage = viewModel.errorMessage {
+                    Text(errorMessage)
+                        .font(.callout)
+                        .foregroundStyle(.red)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    var completionSummary: some View {
+        if viewModel.scanStatus == .completed {
+            GroupBox("Completion Summary") {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 16) {
+                        metricCard(title: "Scanned files", value: "\(viewModel.scannedFileCount)")
+                        metricCard(title: "Scanned size", value: viewModel.totalSizeDescription)
+                        metricCard(title: "Duplicate candidate groups", value: "\(viewModel.duplicateGroups.count)")
+                    }
+
+                    Label("No files were modified.", systemImage: "checkmark.shield")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
 
-    var progressSummary: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if viewModel.isScanning {
-                ProgressView("Scanning…")
-                    .controlSize(.small)
-            }
+    var diagnostics: some View {
+        GroupBox("Diagnostics") {
+            VStack(alignment: .leading, spacing: 12) {
+                diagnosticRow("Last selected folder count", "\(viewModel.lastSelectedFolderCount)")
+                diagnosticRow("Last scan started", formattedDate(viewModel.lastScanStartedAt))
+                diagnosticRow("Last scan completed", formattedDate(viewModel.lastScanCompletedAt))
+                diagnosticRow("Last scan status", viewModel.scanStatus.rawValue)
+                if let errorMessage = viewModel.errorMessage {
+                    diagnosticRow("Last error message", errorMessage)
+                }
+                diagnosticRow("Scanned file count", "\(viewModel.scannedFileCount)")
+                diagnosticRow("Duplicate candidate group count", "\(viewModel.duplicateGroups.count)")
 
-            HStack(spacing: 16) {
-                metricCard(title: "Files scanned", value: "\(viewModel.scannedFileCount)")
-                metricCard(title: "Total size", value: viewModel.totalSizeDescription)
-            }
+                if !viewModel.diagnosticsLog.isEmpty {
+                    Divider()
+                    Text("Recent events")
+                        .font(.headline)
 
-            if let currentPath = viewModel.currentPath {
-                Text("Current file: \(currentPath)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(Array(viewModel.diagnosticsLog.suffix(8).enumerated()), id: \.offset) { _, entry in
+                            Text(entry)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
             }
-
-            if let errorMessage = viewModel.errorMessage {
-                Text(errorMessage)
-                    .font(.callout)
-                    .foregroundStyle(.red)
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -106,7 +214,7 @@ private extension ScanView {
                 ContentUnavailableView(
                     "No Files Scanned",
                     systemImage: "doc.text.magnifyingglass",
-                    description: Text("Select folders and start a scan to collect file metadata.")
+                    description: Text("Select folders and start a scan to collect file metadata. No files are modified.")
                 )
                 .frame(maxWidth: .infinity, minHeight: 160)
             } else {
@@ -144,6 +252,26 @@ private extension ScanView {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    func diagnosticRow(_ title: String, _ value: String) -> some View {
+        HStack(alignment: .top) {
+            Text(title)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 16)
+            Text(value)
+                .multilineTextAlignment(.trailing)
+                .textSelection(.enabled)
+        }
+        .font(.callout)
+    }
+
+    func formattedDate(_ date: Date?) -> String {
+        guard let date else {
+            return "—"
+        }
+
+        return date.formatted(date: .abbreviated, time: .standard)
     }
 }
 
