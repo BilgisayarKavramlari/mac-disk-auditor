@@ -15,7 +15,7 @@ struct ContentView: View {
             case .scan:
                 ScanView(viewModel: viewModel.scanViewModel)
             case .duplicates:
-                DuplicatesView()
+                DuplicatesView(scanViewModel: viewModel.scanViewModel)
             case .settings:
                 SettingsView()
             case .none:

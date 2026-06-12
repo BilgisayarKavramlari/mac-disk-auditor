@@ -12,6 +12,8 @@
 		A10000000000000000000003 /* FileScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000013 /* FileScanner.swift */; };
 		A10000000000000000000032 /* ScannedFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* ScannedFile.swift */; };
 		A10000000000000000000033 /* ScanViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001E /* ScanViewModel.swift */; };
+		A10000000000000000000034 /* DuplicateGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* DuplicateGroup.swift */; };
+		A10000000000000000000035 /* DuplicateDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002B /* DuplicateDetector.swift */; };
 		A10000000000000000000004 /* AppViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* AppViewModel.swift */; };
 		A10000000000000000000005 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* ContentView.swift */; };
 		A10000000000000000000006 /* ScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* ScanView.swift */; };
@@ -40,6 +42,8 @@
 		A10000000000000000000013 /* FileScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileScanner.swift; sourceTree = "<group>"; };
 		A1000000000000000000001D /* ScannedFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannedFile.swift; sourceTree = "<group>"; };
 		A1000000000000000000001E /* ScanViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanViewModel.swift; sourceTree = "<group>"; };
+		A1000000000000000000001F /* DuplicateGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateGroup.swift; sourceTree = "<group>"; };
+		A1000000000000000000002B /* DuplicateDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateDetector.swift; sourceTree = "<group>"; };
 		A10000000000000000000014 /* AppViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViewModel.swift; sourceTree = "<group>"; };
 		A10000000000000000000015 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A10000000000000000000016 /* ScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanView.swift; sourceTree = "<group>"; };
@@ -81,8 +85,8 @@
 			path = SafeDiskAuditor;
 			sourceTree = "<group>";
 		};
-		A10000000000000000000024 /* Models */ = {isa = PBXGroup; children = (A10000000000000000000012 /* AppSection.swift */, A1000000000000000000001D /* ScannedFile.swift */, ); path = Models; sourceTree = "<group>"; };
-		A10000000000000000000025 /* Services */ = {isa = PBXGroup; children = (A10000000000000000000013 /* FileScanner.swift */, ); path = Services; sourceTree = "<group>"; };
+		A10000000000000000000024 /* Models */ = {isa = PBXGroup; children = (A10000000000000000000012 /* AppSection.swift */, A1000000000000000000001D /* ScannedFile.swift */, A1000000000000000000001F /* DuplicateGroup.swift */, ); path = Models; sourceTree = "<group>"; };
+		A10000000000000000000025 /* Services */ = {isa = PBXGroup; children = (A10000000000000000000013 /* FileScanner.swift */, A1000000000000000000002B /* DuplicateDetector.swift */, ); path = Services; sourceTree = "<group>"; };
 		A10000000000000000000026 /* ViewModels */ = {isa = PBXGroup; children = (A10000000000000000000014 /* AppViewModel.swift */, A1000000000000000000001E /* ScanViewModel.swift */, ); path = ViewModels; sourceTree = "<group>"; };
 		A10000000000000000000027 /* Views */ = {isa = PBXGroup; children = (A10000000000000000000015 /* ContentView.swift */, A10000000000000000000016 /* ScanView.swift */, A10000000000000000000017 /* DuplicatesView.swift */, A10000000000000000000018 /* SettingsView.swift */, ); path = Views; sourceTree = "<group>"; };
 		A10000000000000000000028 /* Utilities */ = {isa = PBXGroup; children = (A10000000000000000000019 /* AppConstants.swift */, ); path = Utilities; sourceTree = "<group>"; };
@@ -146,7 +150,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		A10000000000000000000043 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001 /* SafeDiskAuditorApp.swift in Sources */, A10000000000000000000002 /* AppSection.swift in Sources */, A10000000000000000000003 /* FileScanner.swift in Sources */, A10000000000000000000004 /* AppViewModel.swift in Sources */, A10000000000000000000005 /* ContentView.swift in Sources */, A10000000000000000000006 /* ScanView.swift in Sources */, A10000000000000000000007 /* DuplicatesView.swift in Sources */, A10000000000000000000008 /* SettingsView.swift in Sources */, A10000000000000000000009 /* AppConstants.swift in Sources */, A10000000000000000000032 /* ScannedFile.swift in Sources */, A10000000000000000000033 /* ScanViewModel.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
+		A10000000000000000000043 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001 /* SafeDiskAuditorApp.swift in Sources */, A10000000000000000000002 /* AppSection.swift in Sources */, A10000000000000000000003 /* FileScanner.swift in Sources */, A10000000000000000000004 /* AppViewModel.swift in Sources */, A10000000000000000000005 /* ContentView.swift in Sources */, A10000000000000000000006 /* ScanView.swift in Sources */, A10000000000000000000007 /* DuplicatesView.swift in Sources */, A10000000000000000000008 /* SettingsView.swift in Sources */, A10000000000000000000009 /* AppConstants.swift in Sources */, A10000000000000000000032 /* ScannedFile.swift in Sources */, A10000000000000000000033 /* ScanViewModel.swift in Sources */, A10000000000000000000034 /* DuplicateGroup.swift in Sources */, A10000000000000000000035 /* DuplicateDetector.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
 		A10000000000000000000045 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A1000000000000000000000B /* SafeDiskAuditorTests.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 

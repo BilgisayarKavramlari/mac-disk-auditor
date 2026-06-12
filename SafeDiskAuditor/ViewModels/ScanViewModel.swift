@@ -6,6 +6,7 @@ import Foundation
 final class ScanViewModel: ObservableObject {
     @Published private(set) var selectedFolders: [URL] = []
     @Published private(set) var scannedFiles: [ScannedFile] = []
+    @Published private(set) var duplicateGroups: [DuplicateGroup] = []
     @Published private(set) var scannedFileCount = 0
     @Published private(set) var totalSize: Int64 = 0
     @Published private(set) var currentPath: String?
@@ -13,10 +14,15 @@ final class ScanViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     private let fileScanner: FileScanner
+    private let duplicateDetector: DuplicateDetector
     private var scanTask: Task<Void, Never>?
 
-    init(fileScanner: FileScanner = FileScanner()) {
+    init(
+        fileScanner: FileScanner = FileScanner(),
+        duplicateDetector: DuplicateDetector = DuplicateDetector()
+    ) {
         self.fileScanner = fileScanner
+        self.duplicateDetector = duplicateDetector
     }
 
     var hasSelectedFolders: Bool {
@@ -70,11 +76,12 @@ final class ScanViewModel: ObservableObject {
         isScanning = true
         errorMessage = nil
         scannedFiles = []
+        duplicateGroups = []
         scannedFileCount = 0
         totalSize = 0
         currentPath = nil
 
-        scanTask = Task { [fileScanner] in
+        scanTask = Task { [fileScanner, duplicateDetector] in
             do {
                 let result = try await fileScanner.scan(folders: folders) { progress in
                     Task { @MainActor in
@@ -83,6 +90,7 @@ final class ScanViewModel: ObservableObject {
                 }
 
                 scannedFiles = result.files
+                duplicateGroups = duplicateDetector.candidateGroups(from: result.files)
                 scannedFileCount = result.files.count
                 totalSize = result.totalSize
                 currentPath = nil
@@ -115,6 +123,7 @@ private extension ScanViewModel {
 
     func resetScanResults() {
         scannedFiles = []
+        duplicateGroups = []
         scannedFileCount = 0
         totalSize = 0
         currentPath = nil

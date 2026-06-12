@@ -70,9 +70,69 @@ final class SafeDiskAuditorTests: XCTestCase {
         XCTAssertEqual(progressEvents.last, FileScanProgress(scannedFileCount: 2, totalSize: 5, currentPath: nil))
         XCTAssertTrue(progressEvents.contains { $0.scannedFileCount == 1 })
     }
+
+    func testDuplicateDetectorGroupsSameSizeFiles() {
+        let first = makeScannedFile(path: "/tmp/a.txt", size: 12)
+        let second = makeScannedFile(path: "/tmp/b.txt", size: 12)
+        let unique = makeScannedFile(path: "/tmp/c.txt", size: 20)
+
+        let groups = DuplicateDetector().candidateGroups(from: [first, second, unique])
+
+        XCTAssertEqual(groups, [DuplicateGroup(size: 12, files: [first, second])])
+    }
+
+    func testDuplicateDetectorIgnoresUniqueSizeFiles() {
+        let files = [
+            makeScannedFile(path: "/tmp/a.txt", size: 10),
+            makeScannedFile(path: "/tmp/b.txt", size: 20),
+            makeScannedFile(path: "/tmp/c.txt", size: 30)
+        ]
+
+        let groups = DuplicateDetector().candidateGroups(from: files)
+
+        XCTAssertTrue(groups.isEmpty)
+    }
+
+    func testDuplicateDetectorIgnoresZeroByteFiles() {
+        let files = [
+            makeScannedFile(path: "/tmp/empty-a.txt", size: 0),
+            makeScannedFile(path: "/tmp/empty-b.txt", size: 0),
+            makeScannedFile(path: "/tmp/non-empty-a.txt", size: 5),
+            makeScannedFile(path: "/tmp/non-empty-b.txt", size: 5)
+        ]
+
+        let groups = DuplicateDetector().candidateGroups(from: files)
+
+        XCTAssertEqual(groups.count, 1)
+        XCTAssertEqual(groups.first?.size, 5)
+        XCTAssertFalse(groups.flatMap(\.files).contains { $0.size == 0 })
+    }
+
+    func testDuplicateDetectorIgnoresGroupsWithOnlyOneFile() {
+        let files = [
+            makeScannedFile(path: "/tmp/lonely.txt", size: 42)
+        ]
+
+        let groups = DuplicateDetector().candidateGroups(from: files)
+
+        XCTAssertTrue(groups.isEmpty)
+    }
+
 }
 
 private extension XCTestCase {
+    func makeScannedFile(path: String, size: Int64) -> ScannedFile {
+        ScannedFile(
+            fileURL: URL(fileURLWithPath: path),
+            filename: URL(fileURLWithPath: path).lastPathComponent,
+            path: path,
+            fileExtension: URL(fileURLWithPath: path).pathExtension,
+            size: size,
+            creationDate: nil,
+            modificationDate: nil
+        )
+    }
+
     func makeTemporaryDirectory() throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
