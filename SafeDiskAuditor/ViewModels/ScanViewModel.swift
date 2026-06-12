@@ -11,6 +11,14 @@ enum ScanStatus: String, Codable {
     case failed = "Failed"
 }
 
+enum ScanStatus: String {
+    case ready = "Ready"
+    case scanning = "Scanning"
+    case completed = "Completed"
+    case cancelled = "Cancelled"
+    case failed = "Failed"
+}
+
 @MainActor
 final class ScanViewModel: ObservableObject {
     @Published private(set) var selectedFolders: [URL] = []

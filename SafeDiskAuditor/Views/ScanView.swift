@@ -42,6 +42,23 @@ private extension ScanView {
             Text("Choose one or more folders to recursively scan for regular files. SafeDisk Auditor only scans folders you select, skips hidden files and package contents by default, and does not modify files during scanning.")
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                viewModel.chooseFolders()
+            } label: {
+                Label("Choose Folders…", systemImage: "folder.badge.plus")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(viewModel.isScanning)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(.quaternary)
         }
     }
 

@@ -67,6 +67,10 @@ struct DuplicatesView: View {
         scanViewModel.lastScanStartedAt != nil || scanViewModel.scanStatus == .completed
     }
 
+    private var hasRunScan: Bool {
+        scanViewModel.lastScanStartedAt != nil || scanViewModel.scanStatus == .completed
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             header
@@ -155,6 +159,22 @@ private extension DuplicatesView {
                 }
 
                 Text("Cleanup actions are disabled until hash verification is implemented. Current results are size-based candidates only.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    var interactionHint: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Right-click a candidate file for actions. These actions only open files or reveal them in Finder. No files are modified.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let interactionMessage {
+                Text(interactionMessage)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
