@@ -13,4 +13,8 @@ struct DuplicateGroup: Identifiable, Equatable, Codable {
     var fileCount: Int {
         files.count
     }
+
+    var estimatedReclaimableSize: Int64 {
+        Int64(max(0, fileCount - 1)) * size
+    }
 }
