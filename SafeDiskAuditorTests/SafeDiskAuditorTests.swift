@@ -41,12 +41,10 @@ final class SafeDiskAuditorTests: XCTestCase {
         let visibleFile = root.appendingPathComponent("visible.md")
         let hiddenFile = root.appendingPathComponent(".hidden.md")
         let package = root.appendingPathComponent("Example.app", isDirectory: true)
-        let packageFile = package.appendingPathComponent("Contents.txt")
 
         try Data("visible".utf8).write(to: visibleFile)
         try Data("hidden".utf8).write(to: hiddenFile)
-        try FileManager.default.createDirectory(at: package, withIntermediateDirectories: true)
-        try Data("package".utf8).write(to: packageFile)
+        try makeMinimalAppBundle(at: package)
 
         let result = try await FileScanner().scan(folders: [root])
         let scannedPaths = Set(result.files.map(\.path))
@@ -130,6 +128,39 @@ private extension XCTestCase {
             size: size,
             creationDate: nil,
             modificationDate: nil
+        )
+    }
+
+    func makeMinimalAppBundle(at bundleURL: URL) throws {
+        let contents = bundleURL.appendingPathComponent("Contents", isDirectory: true)
+        let macOS = contents.appendingPathComponent("MacOS", isDirectory: true)
+        let resources = contents.appendingPathComponent("Resources", isDirectory: true)
+        let executable = macOS.appendingPathComponent("Example")
+
+        try FileManager.default.createDirectory(at: macOS, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+
+        let infoPlist = contents.appendingPathComponent("Info.plist")
+        let plist = [
+            "CFBundleExecutable": "Example",
+            "CFBundleIdentifier": "com.example.SafeDiskAuditorTests.Example",
+            "CFBundleInfoDictionaryVersion": "6.0",
+            "CFBundleName": "Example",
+            "CFBundlePackageType": "APPL",
+            "CFBundleShortVersionString": "1.0",
+            "CFBundleVersion": "1"
+        ]
+        let plistData = try PropertyListSerialization.data(
+            fromPropertyList: plist,
+            format: .xml,
+            options: 0
+        )
+        try plistData.write(to: infoPlist)
+
+        try Data("#!/bin/sh\n".utf8).write(to: executable)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+        try Data("package".utf8).write(
+            to: resources.appendingPathComponent("Contents.txt")
         )
     }
 
