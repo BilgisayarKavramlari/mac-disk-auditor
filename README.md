@@ -45,6 +45,10 @@ xcodebuild -project SafeDiskAuditor.xcodeproj -scheme SafeDiskAuditor -destinati
 xcodebuild -project SafeDiskAuditor.xcodeproj -scheme SafeDiskAuditor -destination 'platform=macOS' test
 ```
 
+## Download CI App Artifact
+
+After a successful GitHub Actions run, open the **macOS Build** workflow run from the repository's **Actions** tab and download the `SafeDiskAuditor-macOS-app` artifact from the run summary. The artifact contains a zipped `SafeDiskAuditor.app` build for inspection and manual testing.
+
 ## Technology
 
 - macOS 14+

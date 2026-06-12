@@ -2,6 +2,9 @@ name: macOS Build
 
 on:
   pull_request:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -35,7 +38,7 @@ jobs:
             -scheme "$SCHEME_NAME" \
             -destination 'platform=macOS' \
             -derivedDataPath "$DERIVED_DATA_PATH" \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="-" \
             test
 
       - name: Build app
@@ -46,7 +49,7 @@ jobs:
             -configuration Release \
             -destination 'platform=macOS' \
             -derivedDataPath "$DERIVED_DATA_PATH" \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="-" \
             build
 
       - name: Zip app artifact
