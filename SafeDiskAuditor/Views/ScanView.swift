@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct ScanView: View {
@@ -6,6 +7,7 @@ struct ScanView: View {
     @State private var scannedFilesSortOrder: [KeyPathComparator<ScannedFile>] = [
         KeyPathComparator(\ScannedFile.size, order: .reverse)
     ]
+    @State private var interactionMessage: String?
 
     var body: some View {
         ScrollView {
@@ -221,39 +223,85 @@ private extension ScanView {
 
     var recentFiles: some View {
         GroupBox("Scanned Files") {
-            if viewModel.scannedFiles.isEmpty {
-                ContentUnavailableView(
-                    "No Files Scanned",
-                    systemImage: "doc.text.magnifyingglass",
-                    description: Text("Select folders and start a scan to collect file metadata. No files are modified.")
-                )
-                .frame(maxWidth: .infinity, minHeight: 160)
-            } else {
-                // Default to largest files first so users can quickly identify scans with the highest storage impact.
-                Table(sortedScannedFiles, sortOrder: $scannedFilesSortOrder) {
-                    TableColumn("Name", value: \.filename) { file in
-                        Text(file.filename)
-                            .lineLimit(1)
-                    }
-                    TableColumn("Extension", value: \.fileExtension) { file in
-                        Text(file.fileExtension.isEmpty ? "—" : file.fileExtension)
-                    }
-                    TableColumn("Size", value: \.size) { file in
-                        Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
-                    }
-                    TableColumn("Path", value: \.path) { file in
-                        Text(file.path)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Tip: Double-click a file name to open it. Click a path to reveal it in Finder. These actions only open files or reveal them in Finder. No files are modified.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let interactionMessage {
+                    Text(interactionMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .frame(minHeight: 180)
+
+                if viewModel.scannedFiles.isEmpty {
+                    ContentUnavailableView(
+                        "No Files Scanned",
+                        systemImage: "doc.text.magnifyingglass",
+                        description: Text("Select folders and start a scan to collect file metadata. No files are modified.")
+                    )
+                    .frame(maxWidth: .infinity, minHeight: 160)
+                } else {
+                    // Default to largest files first so users can quickly identify scans with the highest storage impact.
+                    Table(sortedScannedFiles, sortOrder: $scannedFilesSortOrder) {
+                        TableColumn("Name", value: \.filename) { file in
+                            Text(file.filename)
+                                .lineLimit(1)
+                                .onTapGesture(count: 2) {
+                                    openFile(file)
+                                }
+                        }
+                        TableColumn("Extension", value: \.fileExtension) { file in
+                            Text(file.fileExtension.isEmpty ? "—" : file.fileExtension)
+                        }
+                        TableColumn("Size", value: \.size) { file in
+                            Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
+                        }
+                        TableColumn("Path", value: \.path) { file in
+                            Button {
+                                revealInFinder(file)
+                            } label: {
+                                Label(file.path, systemImage: "folder")
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+                            .buttonStyle(.link)
+                            .help("Reveal in Finder")
+                        }
+                    }
+                    .frame(minHeight: 180)
+                }
             }
         }
     }
 
     var sortedScannedFiles: [ScannedFile] {
         viewModel.scannedFiles.sorted(using: scannedFilesSortOrder)
+    }
+
+    func openFile(_ file: ScannedFile) {
+        guard FileManager.default.fileExists(atPath: file.fileURL.path) else {
+            interactionMessage = "Could not open file: file no longer exists at \(file.path)"
+            return
+        }
+
+        if NSWorkspace.shared.open(file.fileURL) {
+            interactionMessage = "Opened file: \(file.filename)"
+        } else {
+            interactionMessage = "Could not open file: \(file.path)"
+        }
+    }
+
+    func revealInFinder(_ file: ScannedFile) {
+        guard FileManager.default.fileExists(atPath: file.fileURL.path) else {
+            interactionMessage = "Could not reveal file in Finder: file no longer exists at \(file.path)"
+            return
+        }
+
+        NSWorkspace.shared.activateFileViewerSelecting([file.fileURL])
+        interactionMessage = "Revealed in Finder: \(file.filename)"
     }
 
     func metricCard(title: String, value: String) -> some View {

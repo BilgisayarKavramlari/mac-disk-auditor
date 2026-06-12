@@ -1,8 +1,10 @@
+import AppKit
 import SwiftUI
 
 struct DuplicatesView: View {
     @ObservedObject var scanViewModel: ScanViewModel
     let runAnotherScan: () -> Void
+    @State private var interactionMessage: String?
 
     private var sortedDuplicateGroups: [DuplicateGroup] {
         scanViewModel.duplicateGroups.sorted { lhs, rhs in
@@ -26,6 +28,7 @@ struct DuplicatesView: View {
         VStack(alignment: .leading, spacing: 20) {
             header
             summary
+            interactionHint
             candidateGroups
             Spacer(minLength: 0)
         }
@@ -60,6 +63,22 @@ private extension DuplicatesView {
         }
     }
 
+    var interactionHint: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Right-click a candidate file for actions. These actions only open files or reveal them in Finder. No files are modified.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let interactionMessage {
+                Text(interactionMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
     var candidateGroups: some View {
         GroupBox("Current Scan Candidates") {
             if scanViewModel.duplicateGroups.isEmpty {
@@ -73,23 +92,7 @@ private extension DuplicatesView {
                 List(sortedDuplicateGroups) { group in
                     Section {
                         ForEach(group.files) { file in
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text(file.filename)
-                                        .font(.headline)
-                                    Spacer()
-                                    Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-
-                                Text(file.path)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                            }
-                            .padding(.vertical, 2)
+                            candidateFileRow(file)
                         }
                     } header: {
                         Text("\(group.fileCount) candidate files • \(ByteCountFormatter.string(fromByteCount: group.size, countStyle: .file)) each")
@@ -101,10 +104,66 @@ private extension DuplicatesView {
         }
     }
 
+    func candidateFileRow(_ file: ScannedFile) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(file.filename)
+                    .font(.headline)
+                Spacer()
+                Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(file.path)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .padding(.vertical, 2)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            openFile(file)
+        }
+        .contextMenu {
+            Button("Open File") {
+                openFile(file)
+            }
+
+            Button("Show in Finder") {
+                revealInFinder(file)
+            }
+        }
+    }
+
     var emptyCandidatesMessage: String {
         hasRunScan
         ? "No duplicate candidates found in the latest scan."
         : "Run a scan first to calculate duplicate candidates."
+    }
+
+    func openFile(_ file: ScannedFile) {
+        guard FileManager.default.fileExists(atPath: file.fileURL.path) else {
+            interactionMessage = "Could not open file: file no longer exists at \(file.path)"
+            return
+        }
+
+        if NSWorkspace.shared.open(file.fileURL) {
+            interactionMessage = "Opened file: \(file.filename)"
+        } else {
+            interactionMessage = "Could not open file: \(file.path)"
+        }
+    }
+
+    func revealInFinder(_ file: ScannedFile) {
+        guard FileManager.default.fileExists(atPath: file.fileURL.path) else {
+            interactionMessage = "Could not reveal file in Finder: file no longer exists at \(file.path)"
+            return
+        }
+
+        NSWorkspace.shared.activateFileViewerSelecting([file.fileURL])
+        interactionMessage = "Revealed in Finder: \(file.filename)"
     }
 
     func metricCard(title: String, value: String) -> some View {
