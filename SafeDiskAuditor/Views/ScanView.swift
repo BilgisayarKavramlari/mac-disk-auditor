@@ -2,6 +2,10 @@ import SwiftUI
 
 struct ScanView: View {
     @ObservedObject var viewModel: ScanViewModel
+    let showDuplicateCandidates: () -> Void
+    @State private var scannedFilesSortOrder: [KeyPathComparator<ScannedFile>] = [
+        KeyPathComparator(\ScannedFile.size, order: .reverse)
+    ]
 
     var body: some View {
         ScrollView {
@@ -166,9 +170,16 @@ private extension ScanView {
                         metricCard(title: "Duplicate candidate groups", value: "\(viewModel.duplicateGroups.count)")
                     }
 
-                    Label("No files were modified.", systemImage: "checkmark.shield")
+                    Label("No files are modified.", systemImage: "checkmark.shield")
                         .font(.callout)
                         .foregroundStyle(.secondary)
+
+                    Button {
+                        showDuplicateCandidates()
+                    } label: {
+                        Label("View Duplicate Candidates", systemImage: "doc.on.doc")
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -218,18 +229,19 @@ private extension ScanView {
                 )
                 .frame(maxWidth: .infinity, minHeight: 160)
             } else {
-                Table(viewModel.scannedFiles) {
-                    TableColumn("Name") { file in
+                // Default to largest files first so users can quickly identify scans with the highest storage impact.
+                Table(sortedScannedFiles, sortOrder: $scannedFilesSortOrder) {
+                    TableColumn("Name", value: \.filename) { file in
                         Text(file.filename)
                             .lineLimit(1)
                     }
-                    TableColumn("Extension") { file in
+                    TableColumn("Extension", value: \.fileExtension) { file in
                         Text(file.fileExtension.isEmpty ? "—" : file.fileExtension)
                     }
-                    TableColumn("Size") { file in
+                    TableColumn("Size", value: \.size) { file in
                         Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
                     }
-                    TableColumn("Path") { file in
+                    TableColumn("Path", value: \.path) { file in
                         Text(file.path)
                             .lineLimit(1)
                             .truncationMode(.middle)
@@ -238,6 +250,10 @@ private extension ScanView {
                 .frame(minHeight: 180)
             }
         }
+    }
+
+    var sortedScannedFiles: [ScannedFile] {
+        viewModel.scannedFiles.sorted(using: scannedFilesSortOrder)
     }
 
     func metricCard(title: String, value: String) -> some View {
@@ -276,5 +292,5 @@ private extension ScanView {
 }
 
 #Preview {
-    ScanView(viewModel: ScanViewModel())
+    ScanView(viewModel: ScanViewModel(), showDuplicateCandidates: {})
 }
