@@ -5,13 +5,9 @@ import Foundation
 final class AppViewModel: ObservableObject {
     @Published var selectedSection: AppSection? = .scan
 
-    private let scanService: ScanService
+    let scanViewModel: ScanViewModel
 
-    init(scanService: ScanService = ScanService()) {
-        self.scanService = scanService
-    }
-
-    var scanStatusMessage: String {
-        scanService.statusMessage()
+    init(scanViewModel: ScanViewModel = ScanViewModel()) {
+        self.scanViewModel = scanViewModel
     }
 }

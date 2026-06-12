@@ -13,13 +13,13 @@ struct ContentView: View {
         } detail: {
             switch viewModel.selectedSection {
             case .scan:
-                ScanView(statusMessage: viewModel.scanStatusMessage)
+                ScanView(viewModel: viewModel.scanViewModel)
             case .duplicates:
                 DuplicatesView()
             case .settings:
                 SettingsView()
             case .none:
-                ScanView(statusMessage: viewModel.scanStatusMessage)
+                ScanView(viewModel: viewModel.scanViewModel)
             }
         }
         .frame(minWidth: 900, minHeight: 560)
