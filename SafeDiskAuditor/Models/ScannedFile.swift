@@ -1,7 +1,7 @@
 import Foundation
 
 /// Metadata collected for a regular file discovered during a scan.
-struct ScannedFile: Identifiable, Equatable {
+struct ScannedFile: Identifiable, Equatable, Codable {
     var id: String { path }
 
     let fileURL: URL

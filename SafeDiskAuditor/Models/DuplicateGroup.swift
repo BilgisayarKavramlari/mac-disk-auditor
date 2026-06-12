@@ -4,7 +4,7 @@ import Foundation
 ///
 /// This is an early, non-destructive candidate model. Files in a group are not
 /// confirmed duplicates until future hash-based checks are implemented.
-struct DuplicateGroup: Identifiable, Equatable {
+struct DuplicateGroup: Identifiable, Equatable, Codable {
     var id: Int64 { size }
 
     let size: Int64
