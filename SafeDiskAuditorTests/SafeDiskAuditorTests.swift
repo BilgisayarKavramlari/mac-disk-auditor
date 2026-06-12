@@ -41,12 +41,10 @@ final class SafeDiskAuditorTests: XCTestCase {
         let visibleFile = root.appendingPathComponent("visible.md")
         let hiddenFile = root.appendingPathComponent(".hidden.md")
         let package = root.appendingPathComponent("Example.app", isDirectory: true)
-        let packageFile = package.appendingPathComponent("Contents.txt")
 
         try Data("visible".utf8).write(to: visibleFile)
         try Data("hidden".utf8).write(to: hiddenFile)
-        try FileManager.default.createDirectory(at: package, withIntermediateDirectories: true)
-        try Data("package".utf8).write(to: packageFile)
+        try makeMinimalAppBundle(at: package)
 
         let result = try await FileScanner().scan(folders: [root])
         let scannedPaths = Set(result.files.map(\.path))
@@ -130,6 +128,47 @@ private extension XCTestCase {
             size: size,
             creationDate: nil,
             modificationDate: nil
+        )
+    }
+
+    func makeMinimalAppBundle(at bundleURL: URL) throws {
+        let contents = bundleURL.appendingPathComponent("Contents", isDirectory: true)
+        let macOS = contents.appendingPathComponent("MacOS", isDirectory: true)
+        let resources = contents.appendingPathComponent("Resources", isDirectory: true)
+        let executable = macOS.appendingPathComponent("Example")
+
+        try FileManager.default.createDirectory(at: macOS, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
+
+        let infoPlist = contents.appendingPathComponent("Info.plist")
+        let plist = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleExecutable</key>
+            <string>Example</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.example.SafeDiskAuditorTests.Example</string>
+            <key>CFBundleInfoDictionaryVersion</key>
+            <string>6.0</string>
+            <key>CFBundleName</key>
+            <string>Example</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1.0</string>
+            <key>CFBundleVersion</key>
+            <string>1</string>
+        </dict>
+        </plist>
+        """
+        try Data(plist.utf8).write(to: infoPlist)
+
+        try Data("#!/bin/sh\n".utf8).write(to: executable)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+        try Data("package".utf8).write(
+            to: resources.appendingPathComponent("Contents.txt")
         )
     }
 
