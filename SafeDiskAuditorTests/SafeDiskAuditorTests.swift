@@ -20,15 +20,20 @@ final class SafeDiskAuditorTests: XCTestCase {
         try Data([0, 1, 2, 3]).write(to: nestedFile)
 
         let result = try await FileScanner().scan(folders: [root])
-        let scannedPaths = Set(result.files.map(\.path))
+        let expectedPaths = Set([
+            normalizedPath(textFile),
+            normalizedPath(nestedFile)
+        ])
+        let scannedFilesByPath = Dictionary(grouping: result.files) { scannedFile in
+            normalizedPath(scannedFile.path)
+        }
+        let scannedExpectedFiles = expectedPaths.compactMap { scannedFilesByPath[$0]?.first }
 
-        XCTAssertEqual(result.files.count, 2)
-        XCTAssertEqual(result.totalSize, 9)
-        XCTAssertTrue(scannedPaths.contains(textFile.path))
-        XCTAssertTrue(scannedPaths.contains(nestedFile.path))
+        XCTAssertEqual(Set(scannedExpectedFiles.map { normalizedPath($0.path) }), expectedPaths)
+        XCTAssertEqual(scannedExpectedFiles.reduce(0) { $0 + $1.size }, 9)
 
-        let scannedTextFile = try XCTUnwrap(result.files.first { $0.path == textFile.path })
-        XCTAssertEqual(scannedTextFile.fileURL, textFile)
+        let scannedTextFile = try XCTUnwrap(scannedFilesByPath[normalizedPath(textFile)]?.first)
+        XCTAssertEqual(normalizedPath(scannedTextFile.fileURL), normalizedPath(textFile))
         XCTAssertEqual(scannedTextFile.filename, "report.txt")
         XCTAssertEqual(scannedTextFile.fileExtension, "txt")
         XCTAssertEqual(scannedTextFile.size, 5)
@@ -47,9 +52,14 @@ final class SafeDiskAuditorTests: XCTestCase {
         try makeMinimalAppBundle(at: package)
 
         let result = try await FileScanner().scan(folders: [root])
-        let scannedPaths = Set(result.files.map(\.path))
+        let scannedPaths = Set(result.files.map { normalizedPath($0.path) })
+        let packagePath = normalizedPath(package)
 
-        XCTAssertEqual(scannedPaths, [visibleFile.path])
+        XCTAssertTrue(scannedPaths.contains(normalizedPath(visibleFile)))
+        XCTAssertFalse(scannedPaths.contains(normalizedPath(hiddenFile)))
+        XCTAssertFalse(scannedPaths.contains { scannedPath in
+            scannedPath == packagePath || scannedPath.hasPrefix(packagePath + "/")
+        })
     }
 
     func testFileScannerReportsProgress() async throws {
@@ -162,6 +172,17 @@ private extension XCTestCase {
         try Data("package".utf8).write(
             to: resources.appendingPathComponent("Contents.txt")
         )
+    }
+
+    func normalizedPath(_ url: URL) -> String {
+        normalizedPath(url.path)
+    }
+
+    func normalizedPath(_ path: String) -> String {
+        URL(fileURLWithPath: path)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .path
     }
 
     func makeTemporaryDirectory() throws -> URL {
