@@ -19,18 +19,22 @@ It does not permanently delete files.
 It does not clean system folders automatically.
 It does not perform aggressive cache cleanup.
 
-## Current Project Shell
+## Current MVP Progress
 
 This repository currently contains the initial macOS SwiftUI app scaffold for `SafeDiskAuditor`:
 
 - Xcode project and shared scheme
 - SwiftUI app entry point
 - Sidebar navigation for Scan, Duplicates, and Settings
-- Placeholder scan, duplicate, and settings screens
+- Folder selection from the Scan screen
+- Recursive file metadata scanning for user-selected folders
+- Hidden file and package-content skipping by default
 - Initial app/view model/service separation
 - Basic unit test target
+- GitHub Actions CI for macOS build/test with a zipped app artifact
 
-No deletion, trash, scanner, or duplicate detection features are implemented yet.
+Duplicate detection is not implemented yet.
+Deletion, Trash, and cleaner features are not implemented yet.
 
 ## Build and Test
 
@@ -48,4 +52,4 @@ xcodebuild -project SafeDiskAuditor.xcodeproj -scheme SafeDiskAuditor -destinati
 - SwiftUI
 - AppKit where needed in future features
 - Quick Look preview planned for future review workflows
-- GitHub Actions planned for CI builds
+- GitHub Actions CI builds on a hosted macOS runner

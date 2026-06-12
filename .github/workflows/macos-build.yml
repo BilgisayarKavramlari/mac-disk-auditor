@@ -1,0 +1,64 @@
+name: macOS Build
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build and test macOS app
+    runs-on: macos-14
+
+    env:
+      PROJECT_PATH: SafeDiskAuditor.xcodeproj
+      SCHEME_NAME: SafeDiskAuditor
+      DERIVED_DATA_PATH: build/DerivedData
+      APP_ARTIFACT_NAME: SafeDiskAuditor-macOS-app
+      APP_ZIP_PATH: build/SafeDiskAuditor.app.zip
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: |
+          xcodebuild -version
+          xcode-select -p
+
+      - name: Show project schemes
+        run: xcodebuild -list -project "$PROJECT_PATH"
+
+      - name: Run unit tests
+        run: |
+          xcodebuild \
+            -project "$PROJECT_PATH" \
+            -scheme "$SCHEME_NAME" \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$DERIVED_DATA_PATH" \
+            CODE_SIGNING_ALLOWED=NO \
+            test
+
+      - name: Build app
+        run: |
+          xcodebuild \
+            -project "$PROJECT_PATH" \
+            -scheme "$SCHEME_NAME" \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$DERIVED_DATA_PATH" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Zip app artifact
+        run: |
+          APP_PATH="$DERIVED_DATA_PATH/Build/Products/Release/SafeDiskAuditor.app"
+          test -d "$APP_PATH"
+          mkdir -p "$(dirname "$APP_ZIP_PATH")"
+          ditto -c -k --keepParent "$APP_PATH" "$APP_ZIP_PATH"
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_ARTIFACT_NAME }}
+          path: ${{ env.APP_ZIP_PATH }}
+          if-no-files-found: error
