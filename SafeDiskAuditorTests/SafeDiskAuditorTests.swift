@@ -141,29 +141,21 @@ private extension XCTestCase {
         try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
 
         let infoPlist = contents.appendingPathComponent("Info.plist")
-        let plist = """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-            <key>CFBundleExecutable</key>
-            <string>Example</string>
-            <key>CFBundleIdentifier</key>
-            <string>com.example.SafeDiskAuditorTests.Example</string>
-            <key>CFBundleInfoDictionaryVersion</key>
-            <string>6.0</string>
-            <key>CFBundleName</key>
-            <string>Example</string>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-            <key>CFBundleShortVersionString</key>
-            <string>1.0</string>
-            <key>CFBundleVersion</key>
-            <string>1</string>
-        </dict>
-        </plist>
-        """
-        try Data(plist.utf8).write(to: infoPlist)
+        let plist = [
+            "CFBundleExecutable": "Example",
+            "CFBundleIdentifier": "com.example.SafeDiskAuditorTests.Example",
+            "CFBundleInfoDictionaryVersion": "6.0",
+            "CFBundleName": "Example",
+            "CFBundlePackageType": "APPL",
+            "CFBundleShortVersionString": "1.0",
+            "CFBundleVersion": "1"
+        ]
+        let plistData = try PropertyListSerialization.data(
+            fromPropertyList: plist,
+            format: .xml,
+            options: 0
+        )
+        try plistData.write(to: infoPlist)
 
         try Data("#!/bin/sh\n".utf8).write(to: executable)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
