@@ -80,7 +80,7 @@ final class ScanViewModel: ObservableObject {
 
     var estimatedReclaimableCandidateSize: Int64 {
         duplicateGroups.reduce(0) { total, group in
-            total + max(0, group.fileCount - 1) * group.size
+            total + group.estimatedReclaimableSize
         }
     }
 

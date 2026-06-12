@@ -22,8 +22,8 @@ struct DuplicatesView: View {
         scanViewModel.duplicateGroups.sorted { lhs, rhs in
             switch sortMode {
             case .defaultPriority:
-                let lhsReclaimable = max(0, lhs.fileCount - 1) * lhs.size
-                let rhsReclaimable = max(0, rhs.fileCount - 1) * rhs.size
+                let lhsReclaimable = lhs.estimatedReclaimableSize
+                let rhsReclaimable = rhs.estimatedReclaimableSize
                 if lhsReclaimable != rhsReclaimable {
                     return lhsReclaimable > rhsReclaimable
                 }
@@ -284,7 +284,7 @@ private extension DuplicatesView {
     }
 
     func groupHeader(for group: DuplicateGroup) -> String {
-        let reclaimableSize = max(0, group.fileCount - 1) * group.size
+        let reclaimableSize = group.estimatedReclaimableSize
         let reclaimableDescription = ByteCountFormatter.string(fromByteCount: reclaimableSize, countStyle: .file)
         return "\(group.fileCount) candidate files • \(ByteCountFormatter.string(fromByteCount: group.size, countStyle: .file)) each • estimated reclaimable \(reclaimableDescription)"
     }
